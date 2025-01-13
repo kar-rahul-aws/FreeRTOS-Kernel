@@ -41,12 +41,13 @@
 
 typedef struct xLW_MUTEX
 {
-    atomic_uintptr_t owner;
+    uintptr_t owner;
     uint32_t lock_count;
 } LightWeightMutex_t;
 
 void lightMutexInit( LightWeightMutex_t * xMutex );
-BaseType_t lightMutexTake( LightWeightMutex_t * xMutex, TickType_t xTicksToWait );
+BaseType_t lightMutexTake( LightWeightMutex_t * xMutex,
+                           TickType_t xTicksToWait );
 BaseType_t lightMutexGive( LightWeightMutex_t * xMutex );
 
 /* *INDENT-OFF* */
@@ -56,4 +57,3 @@ BaseType_t lightMutexGive( LightWeightMutex_t * xMutex );
 /* *INDENT-ON* */
 
 #endif /* !defined( STREAM_BUFFER_H ) */
-

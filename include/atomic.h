@@ -410,6 +410,36 @@ static portFORCE_INLINE uint32_t Atomic_XOR_u32( uint32_t volatile * pulDestinat
     return ulCurrent;
 }
 
+
+/*----------------------------- Load - Store Operations ---------------------*/
+
+/* Atomic Store */
+static portFORCE_INLINE void Atomic_Store_u32( uint32_t volatile * pulDestination,
+                                               uint32_t ulValue )
+{
+    ATOMIC_ENTER_CRITICAL();
+    {
+        *pulDestination = ulValue;
+    }
+    ATOMIC_EXIT_CRITICAL();
+}
+/*-----------------------------------------------------------*/
+
+/* Atomic Load */
+static portFORCE_INLINE uint32_t Atomic_Load_u32( uint32_t volatile * pulDestination )
+{
+    uint32_t ulCurrent;
+
+    ATOMIC_ENTER_CRITICAL();
+    {
+        ulCurrent = *pulDestination;
+    }
+    ATOMIC_EXIT_CRITICAL();
+
+    return ulCurrent;
+}
+/*-----------------------------------------------------------*/
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
     }

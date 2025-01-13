@@ -1,7 +1,7 @@
 #include "FreeRTOS.h"
+#include "atomic.h"
 #include "task.h"
 #include "light-weight-mutex.h"
-#include <stdatomic.h>
 
 /* This entire source file will be skipped if the application is not configured
  * to include light weight mutex functionality. This #if is closed at the very
@@ -11,13 +11,14 @@
 
     void lightMutexInit( LightWeightMutex_t * xMutex )
     {
-        atomic_store(&xMutex->owner, 0);
+        Atomic_Store_u32( &xMutex->owner, 0 );
         xMutex->lock_count = 0;
     }
 
-    /*-----------------------------------------------------------*/
+/*-----------------------------------------------------------*/
 
-    BaseType_t lightMutexTake( LightWeightMutex_t * xMutex, TickType_t xTicksToWait )
+    BaseType_t lightMutexTake( LightWeightMutex_t * xMutex,
+                               TickType_t xTicksToWait )
     {
         TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
         uintptr_t expectedOwner = 0;
@@ -34,7 +35,7 @@
         /* Cannot block if the scheduler is suspended. */
         #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
         {
-            if( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && (  != 0U ) )
+            if( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0U ) )
             {
                 xReturn = pdFAIL;
                 goto exit;
@@ -42,23 +43,25 @@
         }
         #endif
 
-        while (true) {
-            if (atomic_compare_exchange_strong(&xMutex->owner, &expectedOwner, (uintptr_t)currentTask))
+        while( pdTRUE )
+        {
+            if( Atomic_CompareAndSwapPointers_p32( &xMutex->owner, &expectedOwner, ( uintptr_t ) currentTask ) )
             {
                 xMutex->lock_count = 1;
                 xReturn = pdPASS;
                 goto exit;
             }
 
-            if (expectedOwner == (uintptr_t)currentTask)
+            if( expectedOwner == ( uintptr_t ) currentTask )
             {
                 xMutex->lock_count++;
                 xReturn = pdPASS;
                 goto exit;
             }
 
-            if (blockTime != portMAX_DELAY) {
-                if ((xTaskGetTickCount() - startTime) >= blockTime)
+            if( xTicksToWait != portMAX_DELAY )
+            {
+                if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
                 {
                     xReturn = pdFAIL;
                     goto exit;
@@ -68,11 +71,12 @@
             taskYIELD();
             expectedOwner = 0;
         }
-    exit:
+
+exit:
         return xReturn;
     }
 
-    /*-----------------------------------------------------------*/
+/*-----------------------------------------------------------*/
 
     BaseType_t lightMutexGive( LightWeightMutex_t * xMutex )
     {
@@ -81,31 +85,33 @@
         /* Check the xMutex pointer is not NULL. */
         if( xMutex == NULL )
         {
-            xReturn = pdFALSE;
-            goto exit;
+            return pdFALSE;
         }
 
         /* Cannot block if the scheduler is suspended. */
-        #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
+        #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) )
         {
-            if( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && (  != 0U ) )
+            if( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED )
             {
-                xReturn = pdFALSE;
-                goto exit;
+                return pdFALSE;
             }
         }
         #endif
 
-        if (atomic_load(&xMutex->owner) != (uintptr_t)currentTask) {
+        if( Atomic_Load_u32( &xMutex->owner ) != ( uintptr_t ) currentTask )
+        {
             return pdFALSE;
         }
 
         xMutex->lock_count--;
 
-        if (xMutex->lock_count == 0) {
-            uintptr_t expectedOwner = (uintptr_t)currentTask;
-            if (!atomic_compare_exchange_strong(&xMutex->owner, &expectedOwner, 0)) {
-                // This should never happen if used correctly
+        if( xMutex->lock_count == 0 )
+        {
+            uintptr_t expectedOwner = ( uintptr_t ) currentTask;
+
+            if( !Atomic_CompareAndSwapPointers_p32( &xMutex->owner, &expectedOwner, 0 ) )
+            {
+                /* This should never happen if used correctly */
                 configASSERT( pdFALSE );
                 return pdFALSE;
             }
@@ -114,7 +120,7 @@
         return pdTRUE;
     }
 
-    /*-----------------------------------------------------------*/
+/*-----------------------------------------------------------*/
 
 /* This entire source file will be skipped if the application is not configured
  * to include light weight mutex functionality. This #if is closed at the very
