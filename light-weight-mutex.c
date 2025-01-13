@@ -22,13 +22,13 @@
     {
         TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
         uintptr_t expectedOwner = 0;
-        BaseType_t xReturn = pdFAIL;
+        BaseType_t xReturn = pdFALSE;
         TickType_t startTime = xTaskGetTickCount();
 
         /* Check the xMutex pointer is not NULL. */
         if( xMutex == NULL )
         {
-            xReturn = pdFAIL;
+            xReturn = pdFALSE;
             goto exit;
         }
 
@@ -37,7 +37,7 @@
         {
             if( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0U ) )
             {
-                xReturn = pdFAIL;
+                xReturn = pdFALSE;
                 goto exit;
             }
         }
@@ -45,17 +45,17 @@
 
         while( pdTRUE )
         {
-            if( Atomic_CompareAndSwapPointers_p32( &xMutex->owner, &expectedOwner, ( uintptr_t ) currentTask ) )
+            if( Atomic_CompareAndSwap_u32( &xMutex->owner, ( uintptr_t ) currentTask, expectedOwner ) )
             {
                 xMutex->lock_count = 1;
-                xReturn = pdPASS;
+                xReturn = pdTRUE;
                 goto exit;
             }
 
             if( expectedOwner == ( uintptr_t ) currentTask )
             {
                 xMutex->lock_count++;
-                xReturn = pdPASS;
+                xReturn = pdTRUE;
                 goto exit;
             }
 
@@ -63,7 +63,7 @@
             {
                 if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
                 {
-                    xReturn = pdFAIL;
+                    xReturn = pdTRUE;
                     goto exit;
                 }
             }
@@ -109,7 +109,7 @@ exit:
         {
             uintptr_t expectedOwner = ( uintptr_t ) currentTask;
 
-            if( !Atomic_CompareAndSwapPointers_p32( &xMutex->owner, &expectedOwner, 0 ) )
+            if( !Atomic_CompareAndSwap_u32( &xMutex->owner, 0, expectedOwner ) )
             {
                 /* This should never happen if used correctly */
                 configASSERT( pdFALSE );
