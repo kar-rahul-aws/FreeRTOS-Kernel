@@ -38,7 +38,7 @@
 /* FreeRTOS includes. */
 #include "FreeRTOS.h"
 #if ( configUSE_LW_MUTEXES == 1 )
-	#include "atomic.h"
+    #include "atomic.h"
 #endif /* configUSE_LW_MUTEXES == 1 */
 #include "task.h"
 #include "timers.h"
@@ -5411,31 +5411,36 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
 }
 
 #if ( configUSE_LW_MUTEXES == 1 )
-	void prvAssignLWMutexOwner( LightWeightMutex_t * const pxMutex )
-	{
-		TCB_t * pxUnblockedTCB = NULL;
-		TaskHandle_t newOwner = NULL;
-		if( listLIST_IS_EMPTY( &( pxMutex->xTasksWaitingForMutex ) ) == pdFALSE )
-        {
-			pxUnblockedTCB = listGET_OWNER_OF_HEAD_ENTRY( &( pxMutex->xTasksWaitingForMutex ) );
-			newOwner = ( TaskHandle_t )pxUnblockedTCB;
-            Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) newOwner );
-            pxMutex->lock_count = 1;
+    void prvAssignLWMutexOwner( LightWeightMutex_t * const pxMutex )
+    {
+        TCB_t * pxUnblockedTCB = NULL;
+        TaskHandle_t newOwner = NULL;
 
-			if( xTaskRemoveFromEventList( &( pxMutex->xTasksWaitingForMutex ) ) != pdFALSE )
+        vTaskSuspendAll();
+        {
+            if( listLIST_IS_EMPTY( &( pxMutex->xTasksWaitingForMutex ) ) == pdFALSE )
             {
-				taskYIELD_IF_USING_PREEMPTION();
+                pxUnblockedTCB = listGET_OWNER_OF_HEAD_ENTRY( &( pxMutex->xTasksWaitingForMutex ) );
+                newOwner = ( TaskHandle_t ) pxUnblockedTCB;
+                Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) newOwner );
+                pxMutex->lock_count = 1;
+
+                if( xTaskRemoveFromEventList( &( pxMutex->xTasksWaitingForMutex ) ) != pdFALSE )
+                {
+                    taskYIELD_IF_USING_PREEMPTION();
+                }
+                else
+                {
+                    mtCOVERAGE_TEST_MARKER();
+                }
             }
             else
             {
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        else
-        {
-            mtCOVERAGE_TEST_MARKER();
-        }
-	}
+        ( void ) xTaskResumeAll();
+    }
 #endif /* configUSE_LW_MUTEXES == 1 */
 
 /* Code below here allows additional code to be inserted into this source file,

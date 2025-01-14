@@ -27,7 +27,7 @@
         TickType_t startTime = xTaskGetTickCount();
 
         /* Check the pxMutex pointer is not NULL. */
-        if( pxMutex == NULL )
+        if( ( pxMutex == NULL ) || ( pxMutex->owner != NULL ) )
         {
             xReturn = pdFALSE;
             goto exit;
@@ -44,30 +44,34 @@
         }
         #endif
 
-        while( pdTRUE )
+        for( ; ; )
         {
-            if( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, expectedOwner ) )
+            taskENTER_CRITICAL();
             {
-                pxMutex->lock_count = 1;
-                xReturn = pdTRUE;
-                goto exit;
-            }
-
-            if( expectedOwner == ( uintptr_t ) currentTask )
-            {
-                pxMutex->lock_count++;
-                xReturn = pdTRUE;
-                goto exit;
-            }
-
-            if( xTicksToWait != portMAX_DELAY )
-            {
-                if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
+                if( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, expectedOwner ) )
                 {
+                    pxMutex->lock_count = 1;
                     xReturn = pdTRUE;
                     goto exit;
                 }
+
+                if( expectedOwner == ( uintptr_t ) currentTask )
+                {
+                    pxMutex->lock_count++;
+                    xReturn = pdTRUE;
+                    goto exit;
+                }
+
+                if( xTicksToWait != portMAX_DELAY )
+                {
+                    if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
+                    {
+                        xReturn = pdTRUE;
+                        goto exit;
+                    }
+                }
             }
+            taskEXIT_CRITICAL();
 
             vTaskPlaceOnEventList( &( pxMutex->xTasksWaitingForMutex ), xTicksToWait );
             taskYIELD();
@@ -100,27 +104,31 @@ exit:
         }
         #endif
 
-        if( Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) currentTask )
+        taskENTER_CRITICAL();
         {
-            return pdFALSE;
-        }
-
-        pxMutex->lock_count--;
-
-        if( pxMutex->lock_count == 0U )
-        {
-            uintptr_t expectedOwner = ( uintptr_t ) currentTask;
-
-            if( !Atomic_CompareAndSwap_u32( &pxMutex->owner, 0, expectedOwner ) )
+            if( Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) currentTask )
             {
-                /* This should never happen if used correctly */
-                configASSERT( pdFALSE );
                 return pdFALSE;
             }
-        }
 
-        /* Get the new owner, if any. */
-        prvAssignLWMutexOwner( pxMutex );
+            pxMutex->lock_count--;
+
+            if( pxMutex->lock_count == 0U )
+            {
+                uintptr_t expectedOwner = ( uintptr_t ) currentTask;
+
+                if( !Atomic_CompareAndSwap_u32( &pxMutex->owner, 0, expectedOwner ) )
+                {
+                    /* This should never happen if used correctly */
+                    configASSERT( pdFALSE );
+                    return pdFALSE;
+                }
+            }
+
+            /* Get the new owner, if any. */
+            prvAssignLWMutexOwner( pxMutex );
+        }
+        taskEXIT_CRITICAL();
 
         return pdTRUE;
     }
