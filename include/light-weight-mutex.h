@@ -43,7 +43,7 @@ typedef struct xLW_MUTEX
 {
     uintptr_t owner;
     uint32_t lock_count;
-    List_t xTasksWaiting;          /*< List of tasks that are blocked waiting to take the mutex.  Stored in priority order. */
+    List_t xTasksWaitingForMutex;          /*< List of tasks that are blocked waiting to take the mutex.  Stored in priority order. */
 } LightWeightMutex_t;
 
 void lightMutexInit( LightWeightMutex_t * xMutex );

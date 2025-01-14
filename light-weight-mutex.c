@@ -13,7 +13,7 @@
     {
         Atomic_Store_u32( &pxMutex->owner, 0 );
         pxMutex->lock_count = 0;
-        vListInitialise( &( pxMutex->xTasksWaitingToReceive ) );
+        vListInitialise( &( pxMutex->xTasksWaitingForMutex ) );
     }
 
 /*-----------------------------------------------------------*/
@@ -84,7 +84,7 @@ exit:
     {
         TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
 
-        /* Check the pxMutex pointer is not NULL. */
+        /* Check the pxMutex pointer is not NULL and the mutex has already been taken earlier. */
         if( ( pxMutex == NULL ) || ( pxMutex->lock_count == 0U ) )
         {
             return pdFALSE;
@@ -107,7 +107,7 @@ exit:
 
         pxMutex->lock_count--;
 
-        if( pxMutex->lock_count == 0 )
+        if( pxMutex->lock_count == 0U )
         {
             uintptr_t expectedOwner = ( uintptr_t ) currentTask;
 
@@ -120,14 +120,7 @@ exit:
         }
 
         /* Get the new owner, if any. */
-        if( listLIST_IS_EMPTY( &( pxMutex->xTasksWaitingForMutex ) ) == pdFALSE )
-        {
-            TaskHandle_t newOwner = NULL;
-            newOwner = ( TaskHandle_t ) listGET_OWNER_OF_NEXT_ENTRY( &( pxMutex->xTasksWaitingForMutex ) );
-            Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) newOwner );
-            pxMutex->lock_count = 1;
-            listREMOVE_HEAD( &( pxMutex->xTasksWaitingForMutex ) );
-        }
+        prvAssignLWMutexOwner( pxMutex );
 
         return pdTRUE;
     }

@@ -35,6 +35,9 @@
 #endif
 
 #include "list.h"
+#if ( configUSE_LW_MUTEXES == 1 )
+	#include "light-weight-mutex.h"
+#endif /* configUSE_LW_MUTEXES == 1 */
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
@@ -3108,6 +3111,14 @@ TaskHandle_t pvTaskIncrementMutexHeldCount( void ) PRIVILEGED_FUNCTION;
  * section.
  */
 void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNCTION;
+
+/*
+ * For internal use only. Use this private function to assign the next owner to a mutex
+ * which has been released.
+ */
+#if ( configUSE_LW_MUTEXES == 1 )
+	void prvAssignLWMutexOwner( LightWeightMutex_t * const pxMutex ) PRIVILEGED_FUNCTION;
+#endif /* configUSE_LW_MUTEXES == 1 */
 
 
 /* *INDENT-OFF* */

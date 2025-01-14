@@ -37,9 +37,13 @@
 
 /* FreeRTOS includes. */
 #include "FreeRTOS.h"
+#if ( configUSE_LW_MUTEXES == 1 )
+	#include "atomic.h"
+#endif /* configUSE_LW_MUTEXES == 1 */
 #include "task.h"
 #include "timers.h"
 #include "stack_macros.h"
+
 
 /* Lint e9021, e961 and e750 are suppressed as a MISRA exception justified
  * because the MPU ports require MPU_WRAPPERS_INCLUDED_FROM_API_FILE to be defined
@@ -5405,6 +5409,34 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
     }
     #endif /* INCLUDE_vTaskSuspend */
 }
+
+#if ( configUSE_LW_MUTEXES == 1 )
+	void prvAssignLWMutexOwner( LightWeightMutex_t * const pxMutex )
+	{
+		TCB_t * pxUnblockedTCB = NULL;
+		TaskHandle_t newOwner = NULL;
+		if( listLIST_IS_EMPTY( &( pxMutex->xTasksWaitingForMutex ) ) == pdFALSE )
+        {
+			pxUnblockedTCB = listGET_OWNER_OF_HEAD_ENTRY( &( pxMutex->xTasksWaitingForMutex ) );
+			newOwner = ( TaskHandle_t )pxUnblockedTCB;
+            Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) newOwner );
+            pxMutex->lock_count = 1;
+
+			if( xTaskRemoveFromEventList( &( pxMutex->xTasksWaitingForMutex ) ) != pdFALSE )
+            {
+				taskYIELD_IF_USING_PREEMPTION();
+            }
+            else
+            {
+                mtCOVERAGE_TEST_MARKER();
+            }
+        }
+        else
+        {
+            mtCOVERAGE_TEST_MARKER();
+        }
+	}
+#endif /* configUSE_LW_MUTEXES == 1 */
 
 /* Code below here allows additional code to be inserted into this source file,
  * especially where access to file scope functions and data is needed (for example
