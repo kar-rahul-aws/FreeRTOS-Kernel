@@ -9,15 +9,16 @@
  * configUSE_LW_MUTEXES is set to 1 in FreeRTOSConfig.h. */
 #if ( configUSE_LW_MUTEXES == 1 )
 
-    void lightMutexInit( LightWeightMutex_t * xMutex )
+    void lightMutexInit( LightWeightMutex_t * pxMutex )
     {
-        Atomic_Store_u32( &xMutex->owner, 0 );
-        xMutex->lock_count = 0;
+        Atomic_Store_u32( &pxMutex->owner, 0 );
+        pxMutex->lock_count = 0;
+        vListInitialise( &( pxMutex->xTasksWaitingToReceive ) );
     }
 
 /*-----------------------------------------------------------*/
 
-    BaseType_t lightMutexTake( LightWeightMutex_t * xMutex,
+    BaseType_t lightMutexTake( LightWeightMutex_t * pxMutex,
                                TickType_t xTicksToWait )
     {
         TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
@@ -25,8 +26,8 @@
         BaseType_t xReturn = pdFALSE;
         TickType_t startTime = xTaskGetTickCount();
 
-        /* Check the xMutex pointer is not NULL. */
-        if( xMutex == NULL )
+        /* Check the pxMutex pointer is not NULL. */
+        if( pxMutex == NULL )
         {
             xReturn = pdFALSE;
             goto exit;
@@ -45,16 +46,16 @@
 
         while( pdTRUE )
         {
-            if( Atomic_CompareAndSwap_u32( &xMutex->owner, ( uintptr_t ) currentTask, expectedOwner ) )
+            if( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, expectedOwner ) )
             {
-                xMutex->lock_count = 1;
+                pxMutex->lock_count = 1;
                 xReturn = pdTRUE;
                 goto exit;
             }
 
             if( expectedOwner == ( uintptr_t ) currentTask )
             {
-                xMutex->lock_count++;
+                pxMutex->lock_count++;
                 xReturn = pdTRUE;
                 goto exit;
             }
@@ -68,6 +69,7 @@
                 }
             }
 
+            vTaskPlaceOnEventList( &( pxMutex->xTasksWaitingForMutex ), xTicksToWait );
             taskYIELD();
             expectedOwner = 0;
         }
@@ -78,12 +80,12 @@ exit:
 
 /*-----------------------------------------------------------*/
 
-    BaseType_t lightMutexGive( LightWeightMutex_t * xMutex )
+    BaseType_t lightMutexGive( LightWeightMutex_t * pxMutex )
     {
         TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
 
-        /* Check the xMutex pointer is not NULL. */
-        if( xMutex == NULL )
+        /* Check the pxMutex pointer is not NULL. */
+        if( ( pxMutex == NULL ) || ( pxMutex->lock_count == 0U ) )
         {
             return pdFALSE;
         }
@@ -98,23 +100,33 @@ exit:
         }
         #endif
 
-        if( Atomic_Load_u32( &xMutex->owner ) != ( uintptr_t ) currentTask )
+        if( Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) currentTask )
         {
             return pdFALSE;
         }
 
-        xMutex->lock_count--;
+        pxMutex->lock_count--;
 
-        if( xMutex->lock_count == 0 )
+        if( pxMutex->lock_count == 0 )
         {
             uintptr_t expectedOwner = ( uintptr_t ) currentTask;
 
-            if( !Atomic_CompareAndSwap_u32( &xMutex->owner, 0, expectedOwner ) )
+            if( !Atomic_CompareAndSwap_u32( &pxMutex->owner, 0, expectedOwner ) )
             {
                 /* This should never happen if used correctly */
                 configASSERT( pdFALSE );
                 return pdFALSE;
             }
+        }
+
+        /* Get the new owner, if any. */
+        if( listLIST_IS_EMPTY( &( pxMutex->xTasksWaitingForMutex ) ) == pdFALSE )
+        {
+            TaskHandle_t newOwner = NULL;
+            newOwner = ( TaskHandle_t ) listGET_OWNER_OF_NEXT_ENTRY( &( pxMutex->xTasksWaitingForMutex ) );
+            Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) newOwner );
+            pxMutex->lock_count = 1;
+            listREMOVE_HEAD( &( pxMutex->xTasksWaitingForMutex ) );
         }
 
         return pdTRUE;
