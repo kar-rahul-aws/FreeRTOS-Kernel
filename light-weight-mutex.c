@@ -48,7 +48,7 @@
         {
             taskENTER_CRITICAL();
             {
-                if( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, expectedOwner ) || ( expectedOwner == ( uintptr_t ) currentTask ) )
+                if( ( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, expectedOwner ) ) || ( Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask ) )
                 {
                     pxMutex->lock_count++;
                     xReturn = pdTRUE;
