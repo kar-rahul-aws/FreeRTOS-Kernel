@@ -60,7 +60,7 @@
                 {
                     if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
                     {
-                        xReturn = pdTRUE;
+                        xReturn = pdFALSE;
                         taskEXIT_CRITICAL();
                         goto exit;
                     }
