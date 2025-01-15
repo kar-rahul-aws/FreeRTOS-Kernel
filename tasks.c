@@ -5416,30 +5416,30 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
         TCB_t * pxUnblockedTCB = NULL;
         TaskHandle_t newOwner = NULL;
 
-        vTaskSuspendAll();
+        if( listLIST_IS_EMPTY( &( pxMutex->xTasksWaitingForMutex ) ) == pdFALSE )
         {
-            if( listLIST_IS_EMPTY( &( pxMutex->xTasksWaitingForMutex ) ) == pdFALSE )
+            taskENTER_CRITICAL();
             {
                 pxUnblockedTCB = listGET_OWNER_OF_HEAD_ENTRY( &( pxMutex->xTasksWaitingForMutex ) );
                 newOwner = ( TaskHandle_t ) pxUnblockedTCB;
                 Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) newOwner );
                 pxMutex->lock_count = 1;
+            }
+            taskEXIT_CRITICAL();
 
-                if( xTaskRemoveFromEventList( &( pxMutex->xTasksWaitingForMutex ) ) != pdFALSE )
-                {
-                    taskYIELD_IF_USING_PREEMPTION();
-                }
-                else
-                {
-                    mtCOVERAGE_TEST_MARKER();
-                }
+            if( xTaskRemoveFromEventList( &( pxMutex->xTasksWaitingForMutex ) ) != pdFALSE )
+            {
+                taskYIELD_IF_USING_PREEMPTION();
             }
             else
             {
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        ( void ) xTaskResumeAll();
+        else
+        {
+            mtCOVERAGE_TEST_MARKER();
+        }
     }
 #endif /* configUSE_LW_MUTEXES == 1 */
 

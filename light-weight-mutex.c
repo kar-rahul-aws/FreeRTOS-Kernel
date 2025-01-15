@@ -27,7 +27,7 @@
         TickType_t startTime = xTaskGetTickCount();
 
         /* Check the pxMutex pointer is not NULL. */
-        if( ( pxMutex == NULL ) || ( pxMutex->owner != NULL ) )
+        if( pxMutex == NULL )
         {
             xReturn = pdFALSE;
             goto exit;
@@ -48,17 +48,11 @@
         {
             taskENTER_CRITICAL();
             {
-                if( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, expectedOwner ) )
-                {
-                    pxMutex->lock_count = 1;
-                    xReturn = pdTRUE;
-                    goto exit;
-                }
-
-                if( expectedOwner == ( uintptr_t ) currentTask )
+                if( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, expectedOwner ) || ( expectedOwner == ( uintptr_t ) currentTask ) )
                 {
                     pxMutex->lock_count++;
                     xReturn = pdTRUE;
+                    taskEXIT_CRITICAL();
                     goto exit;
                 }
 
@@ -67,6 +61,7 @@
                     if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
                     {
                         xReturn = pdTRUE;
+                        taskEXIT_CRITICAL();
                         goto exit;
                     }
                 }
@@ -108,6 +103,7 @@ exit:
         {
             if( Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) currentTask )
             {
+                taskEXIT_CRITICAL();
                 return pdFALSE;
             }
 
