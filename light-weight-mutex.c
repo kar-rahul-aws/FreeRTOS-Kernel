@@ -65,10 +65,10 @@
                         goto exit;
                     }
                 }
+
+                vTaskPlaceOnEventList( &( pxMutex->xTasksWaitingForMutex ), xTicksToWait );
             }
             taskEXIT_CRITICAL();
-
-            vTaskPlaceOnEventList( &( pxMutex->xTasksWaitingForMutex ), xTicksToWait );
             taskYIELD();
             expectedOwner = 0;
         }
