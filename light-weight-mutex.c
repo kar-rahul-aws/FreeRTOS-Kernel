@@ -119,10 +119,10 @@ exit:
                     configASSERT( pdFALSE );
                     return pdFALSE;
                 }
-            }
 
-            /* Get the new owner, if any. */
-            prvAssignLWMutexOwner( pxMutex );
+                /* Get the new owner, if any. */
+                prvAssignLWMutexOwner( pxMutex );
+            }
         }
         taskEXIT_CRITICAL();
 
