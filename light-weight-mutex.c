@@ -7,7 +7,7 @@
  * to include light weight mutex functionality. This #if is closed at the very
  * bottom of this file. If you want to include light weight mutexes then ensure
  * configUSE_LW_MUTEXES is set to 1 in FreeRTOSConfig.h. */
-#if ( configUSE_LW_MUTEXES == 1 )
+#if ( configUSE_LW_MUTEXES == 0 )
 
     void lightMutexInit( LightWeightMutex_t * pxMutex )
     {
@@ -18,7 +18,7 @@
 
 /*-----------------------------------------------------------*/
 
-    BaseType_t lightMutexTake( LightWeightMutex_t * pxMutex,
+    BaseType_t xLightMutexTake( LightWeightMutex_t * pxMutex,
                                TickType_t xTicksToWait )
     {
         TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
@@ -26,35 +26,13 @@
         TickType_t startTime = xTaskGetTickCount();
 
         /* Check the pxMutex pointer is not NULL. */
-        if( pxMutex == NULL )
-        {
-            xReturn = pdFALSE;
-            goto exit;
-        }
-
-        /* Cannot block if the scheduler is suspended. */
-        #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
-        {
-            if( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0U ) )
-            {
-                xReturn = pdFALSE;
-                goto exit;
-            }
-        }
-        #endif
+        configASSERT( pxMutex || ( xTicksToWait == 0U ) );
 
         for( ; ; )
         {
             taskENTER_CRITICAL();
             {
-                if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask )
-                {
-                    pxMutex->lock_count++;
-                    xReturn = pdTRUE;
-                    taskEXIT_CRITICAL();
-                    goto exit;
-                }
-                else if( pxMutex->lock_count == 0U )
+                if( pxMutex->lock_count == 0U )
                 {
                     Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask );
                     pxMutex->lock_count = 1;
@@ -62,7 +40,16 @@
                     taskEXIT_CRITICAL();
                     goto exit;
                 }
-                else if( xTicksToWait != portMAX_DELAY )
+
+                if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask )
+                {
+                    pxMutex->lock_count++;
+                    xReturn = pdTRUE;
+                    taskEXIT_CRITICAL();
+                    goto exit;
+                }
+
+                if( xTicksToWait != portMAX_DELAY )
                 {
                     if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
                     {
@@ -84,43 +71,32 @@ exit:
 
 /*-----------------------------------------------------------*/
 
-    BaseType_t lightMutexGive( LightWeightMutex_t * pxMutex )
+    BaseType_t xLightMutexGive( LightWeightMutex_t * pxMutex )
     {
-        TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
-
         /* Check the pxMutex pointer is not NULL and the mutex has already been taken earlier. */
-        if( ( pxMutex == NULL ) || ( pxMutex->lock_count == 0U ) )
-        {
-            return pdFALSE;
-        }
+        BaseType_t xReturn = pdFALSE;
 
-        /* Cannot block if the scheduler is suspended. */
-        #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) )
-        {
-            if( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED )
-            {
-                return pdFALSE;
-            }
-        }
-        #endif
+        configASSERT( pxMutex );
 
         taskENTER_CRITICAL();
         {
-            if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) currentTask )
+            if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) xTaskGetCurrentTaskHandle() )
             {
                 taskEXIT_CRITICAL();
-                return pdFALSE;
+                xReturn =  pdFALSE;
             }
-
-            pxMutex->lock_count--;
-
-            if( pxMutex->lock_count == 0U )
+            else
             {
-                /* Update the current owner of the mutex to 0. */
-                Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) 0U );
+                pxMutex->lock_count--;
 
-                /* Get the new owner, if any. */
-                prvAssignLWMutexOwner( pxMutex );
+                if( pxMutex->lock_count == 0U )
+                {
+                    /* Update the current owner of the mutex to 0. */
+                    Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) 0U );
+
+                    /* Get the new owner, if any. */
+                    prvAssignLWMutexOwner( pxMutex );
+                }
             }
         }
         taskEXIT_CRITICAL();
