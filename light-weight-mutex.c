@@ -7,7 +7,7 @@
  * to include light weight mutex functionality. This #if is closed at the very
  * bottom of this file. If you want to include light weight mutexes then ensure
  * configUSE_LW_MUTEXES is set to 1 in FreeRTOSConfig.h. */
-#if ( configUSE_LW_MUTEXES == 0 )
+#if ( configUSE_LW_MUTEXES == 1 )
 
     void lightMutexInit( LightWeightMutex_t * pxMutex )
     {
