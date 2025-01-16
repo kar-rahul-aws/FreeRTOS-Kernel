@@ -54,8 +54,9 @@
                     taskEXIT_CRITICAL();
                     goto exit;
                 }
-                else if( ( pxMutex->lock_count == 0U ) && ( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, 0 ) ) )
+                else if( pxMutex->lock_count == 0U )
                 {
+                    Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask );
                     pxMutex->lock_count = 1;
                     xReturn = pdTRUE;
                     taskEXIT_CRITICAL();
