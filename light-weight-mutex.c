@@ -116,12 +116,8 @@ exit:
 
             if( pxMutex->lock_count == 0U )
             {
-                if( !Atomic_CompareAndSwap_u32( &pxMutex->owner, 0, ( uintptr_t ) currentTask ) )
-                {
-                    /* This should never happen if used correctly */
-                    configASSERT( pdFALSE );
-                    return pdFALSE;
-                }
+                /* Update the current owner of the mutex to 0. */
+                Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) 0U );
 
                 /* Get the new owner, if any. */
                 prvAssignLWMutexOwner( pxMutex );
