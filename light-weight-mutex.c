@@ -1,7 +1,8 @@
 #include "FreeRTOS.h"
-#include "atomic.h"
 #include "task.h"
 #include "light-weight-mutex.h"
+
+#define configLW_MUTEX_CEIL_PRIORITY    5U
 
 /* This entire source file will be skipped if the application is not configured
  * to include light weight mutex functionality. This #if is closed at the very
@@ -11,9 +12,22 @@
 
     void lightMutexInit( LightWeightMutex_t * pxMutex )
     {
-        pxMutex->owner = 0;
-        pxMutex->lock_count = 0;
+        pxMutex->owner = 0U;
+        pxMutex->lock_count = 0U;
+        pxMutex->uxCeilingPriority = configLW_MUTEX_CEIL_PRIORITY;
         vListInitialise( &( pxMutex->xTasksWaitingForMutex ) );
+        vListInitialiseItem( &( pxMutex->xMutexHolderListItem ) );
+        listSET_LIST_ITEM_OWNER( &( pxMutex->xMutexHolderListItem ), pxMutex );
+        listSET_LIST_ITEM_VALUE( &( pxMutex->xMutexHolderListItem ), ( TickType_t ) configMAX_PRIORITIES - ( TickType_t ) pxMutex->uxCeilingPriority );
+    }
+
+/*-----------------------------------------------------------*/
+
+    void vRemoveMutexItemFromList( void * pvMutexHandle )
+    {
+        configASSERT( pvMutexHandle != NULL );
+        LightWeightMutex_t * pxMutex = ( LightWeightMutex_t * ) pvMutexHandle;
+        listREMOVE_ITEM( &( pxMutex->xMutexHolderListItem ) );
     }
 
 /*-----------------------------------------------------------*/
@@ -23,6 +37,7 @@
     {
         TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
         BaseType_t xReturn = pdFALSE;
+        BaseType_t xInheritanceOccurred = pdFALSE;
         TickType_t startTime = xTaskGetTickCount();
 
         /* Check the pxMutex pointer is not NULL. */
@@ -37,9 +52,11 @@
                     /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask ); */
                     pxMutex->owner = ( uintptr_t ) currentTask;
                     pxMutex->lock_count = 1;
+                    vInsertMutexToHolderList( currentTask, &( pxMutex->xMutexHolderListItem ) );
+                    xInheritanceOccurred = xTaskCeilingPriorityInherit( pxMutex->uxCeilingPriority );
                     xReturn = pdTRUE;
                     taskEXIT_CRITICAL();
-                    goto exit;
+                    break;
                 }
 
                 /*if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask ) */
@@ -48,16 +65,31 @@
                     pxMutex->lock_count++;
                     xReturn = pdTRUE;
                     taskEXIT_CRITICAL();
-                    goto exit;
+                    break;
                 }
 
                 if( xTicksToWait != portMAX_DELAY )
                 {
+                    /* Timed out */
                     if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
                     {
+                        /* Get the ceiling priority of next mutex held.
+                         * If it not there set to base priority.
+                         */
+                        LightWeightMutex_t * pxNextMutex = pvRemoveMutexToHolderList( ( void * const ) pxMutex );
+
+                        if( pxNextMutex != NULL )
+                        {
+                            xTaskCeilingPriorityDisInherit( pxNextMutex->uxCeilingPriority );
+                        }
+                        else
+                        {
+                            xTaskCeilingPriorityDisInheritToBasePrio();
+                        }
+
                         xReturn = pdFALSE;
                         taskEXIT_CRITICAL();
-                        goto exit;
+                        break;
                     }
                 }
 
@@ -67,7 +99,6 @@
             taskEXIT_CRITICAL();
         }
 
-exit:
         return xReturn;
     }
 
@@ -97,6 +128,18 @@ exit:
 
                     /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) 0U ); */
                     pxMutex->owner = ( uintptr_t ) 0U;
+                    /* The mutex is no longer being held. */
+                    LightWeightMutex_t * pxNextMutex = pvRemoveMutexToHolderList( ( void * const ) pxMutex );
+
+                    if( pxNextMutex != NULL )
+                    {
+                        xTaskCeilingPriorityDisInherit( pxNextMutex->uxCeilingPriority );
+                    }
+                    else
+                    {
+                        xTaskCeilingPriorityDisInheritToBasePrio();
+                    }
+
                     xReturn = pdTRUE;
                     /* Get the new owner, if any. */
                     prvAssignLWMutexOwner( pxMutex );

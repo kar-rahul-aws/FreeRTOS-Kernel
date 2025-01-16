@@ -36,7 +36,7 @@
 
 #include "list.h"
 #if ( configUSE_LW_MUTEXES == 1 )
-	#include "light-weight-mutex.h"
+    #include "light-weight-mutex.h"
 #endif /* configUSE_LW_MUTEXES == 1 */
 
 /* *INDENT-OFF* */
@@ -3117,7 +3117,15 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
  * which has been released.
  */
 #if ( configUSE_LW_MUTEXES == 1 )
-	void prvAssignLWMutexOwner( LightWeightMutex_t * const pxMutex ) PRIVILEGED_FUNCTION;
+    void vInsertMutexToHolderList( TaskHandle_t xTaskHandle,
+                                   ListItem_t * pxEventListItem );
+    void * pvRemoveMutexToHolderList( void * const pvQueue );
+    void vTaskInheritedPrioritySet( TaskHandle_t xTask,
+                                    UBaseType_t uxNewPriority );
+    BaseType_t xTaskCeilingPriorityInherit( UBaseType_t uxCeilingPriority );
+    BaseType_t xTaskCeilingPriorityDisInherit( UBaseType_t uxDisInheritedPriority );
+    BaseType_t xTaskCeilingPriorityDisInheritToBasePrio();
+    void prvAssignLWMutexOwner( LightWeightMutex_t * const pxMutex );
 #endif /* configUSE_LW_MUTEXES == 1 */
 
 
