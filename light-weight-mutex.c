@@ -22,7 +22,6 @@
                                TickType_t xTicksToWait )
     {
         TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
-        uintptr_t expectedOwner = 0;
         BaseType_t xReturn = pdFALSE;
         TickType_t startTime = xTaskGetTickCount();
 
@@ -48,7 +47,15 @@
         {
             taskENTER_CRITICAL();
             {
-                if( ( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, expectedOwner ) ) || ( Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask ) )
+                if( ( pxMutex->lock_count == 0U ) && ( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, 0 ) ) )
+                {
+                    pxMutex->lock_count = 1;
+                    xReturn = pdTRUE;
+                    taskEXIT_CRITICAL();
+                    goto exit;
+                }
+
+                if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask )
                 {
                     pxMutex->lock_count++;
                     xReturn = pdTRUE;
@@ -70,7 +77,6 @@
             }
             taskEXIT_CRITICAL();
             taskYIELD();
-            expectedOwner = 0;
         }
 
 exit:
@@ -101,7 +107,7 @@ exit:
 
         taskENTER_CRITICAL();
         {
-            if( Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) currentTask )
+            if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) currentTask )
             {
                 taskEXIT_CRITICAL();
                 return pdFALSE;
@@ -111,9 +117,7 @@ exit:
 
             if( pxMutex->lock_count == 0U )
             {
-                uintptr_t expectedOwner = ( uintptr_t ) currentTask;
-
-                if( !Atomic_CompareAndSwap_u32( &pxMutex->owner, 0, expectedOwner ) )
+                if( !Atomic_CompareAndSwap_u32( &pxMutex->owner, 0, ( uintptr_t ) currentTask ) )
                 {
                     /* This should never happen if used correctly */
                     configASSERT( pdFALSE );
