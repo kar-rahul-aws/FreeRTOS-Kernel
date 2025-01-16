@@ -28,41 +28,40 @@
         /* Check the pxMutex pointer is not NULL. */
         configASSERT( ( pxMutex != NULL ) || ( xTicksToWait != 0U ) );
 
-        for( ; ; )
+        taskENTER_CRITICAL();
         {
+            if( pxMutex->lock_count == 0U )
+            {
+                //Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask );
+                pxMutex->owner = ( uintptr_t ) currentTask;
+                pxMutex->lock_count = 1;
+                xReturn = pdTRUE;
+                taskEXIT_CRITICAL();
+                goto exit;
+            }
 
-                if( pxMutex->lock_count == 0U )
+            //if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask )
+            if( pxMutex->owner == ( uintptr_t ) currentTask )
+            {
+                pxMutex->lock_count++;
+                xReturn = pdTRUE;
+                taskEXIT_CRITICAL();
+                goto exit;
+            }
+
+            if( xTicksToWait != portMAX_DELAY )
+            {
+                if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
                 {
-                    Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask );
-                    pxMutex->lock_count = 1;
-                    xReturn = pdTRUE;
-
+                    xReturn = pdFALSE;
+                    taskEXIT_CRITICAL();
                     goto exit;
                 }
+            }
 
-                if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask )
-                {
-                    pxMutex->lock_count++;
-                    xReturn = pdTRUE;
-
-                    goto exit;
-                }
-
-                if( xTicksToWait != portMAX_DELAY )
-                {
-                    if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
-                    {
-                        xReturn = pdFALSE;
-
-                        goto exit;
-                    }
-                }
-
-                vTaskPlaceOnEventList( &( pxMutex->xTasksWaitingForMutex ), xTicksToWait );
-
-
-            taskYIELD();
+            vTaskPlaceOnEventList( &( pxMutex->xTasksWaitingForMutex ), xTicksToWait );
         }
+        taskEXIT_CRITICAL();
 
 exit:
         return xReturn;
@@ -73,33 +72,36 @@ exit:
     BaseType_t lightMutexGive( LightWeightMutex_t * pxMutex )
     {
         /* Check the pxMutex pointer is not NULL and the mutex has already been taken earlier. */
-        BaseType_t xReturn = pdFALSE;
+        BaseType_t xReturn = pdTRUE;
 
-        configASSERT( pxMutex != NULL );
+        configASSERT( ( pxMutex != NULL ) || ( pxMutex->lock_count != 0U ) ) ;
 
-        {
-            if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) xTaskGetCurrentTaskHandle() )
+            //if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) xTaskGetCurrentTaskHandle() )
+            if( pxMutex->owner != ( uintptr_t ) xTaskGetCurrentTaskHandle() )
             {
-
-                xReturn =  pdFALSE;
+                xReturn = pdFALSE;
             }
             else
             {
-                pxMutex->lock_count--;
-
-                if( pxMutex->lock_count == 0U )
+                taskENTER_CRITICAL();
                 {
-                    /* Update the current owner of the mutex to 0. */
-                    Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) 0U );
+                    pxMutex->lock_count--;
 
-                    /* Get the new owner, if any. */
-                    prvAssignLWMutexOwner( pxMutex );
+                    if( pxMutex->lock_count == 0U )
+                    {
+                        /* Update the current owner of the mutex to 0. */
+
+                        //Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) 0U );
+                        pxMutex->owner = ( uintptr_t ) 0U;
+                        xReturn = pdTRUE;
+                        /* Get the new owner, if any. */
+                        prvAssignLWMutexOwner( pxMutex );
+                    }
                 }
+                taskEXIT_CRITICAL();
             }
-        }
 
-
-        return pdTRUE;
+        return xReturn;
     }
 
 /*-----------------------------------------------------------*/
