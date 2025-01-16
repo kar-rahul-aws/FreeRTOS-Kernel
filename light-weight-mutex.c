@@ -18,7 +18,7 @@
 
 /*-----------------------------------------------------------*/
 
-    BaseType_t xLightMutexTake( LightWeightMutex_t * pxMutex,
+    BaseType_t lightMutexTake( LightWeightMutex_t * pxMutex,
                                TickType_t xTicksToWait )
     {
         TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
@@ -71,7 +71,7 @@ exit:
 
 /*-----------------------------------------------------------*/
 
-    BaseType_t xLightMutexGive( LightWeightMutex_t * pxMutex )
+    BaseType_t lightMutexGive( LightWeightMutex_t * pxMutex )
     {
         /* Check the pxMutex pointer is not NULL and the mutex has already been taken earlier. */
         BaseType_t xReturn = pdFALSE;
