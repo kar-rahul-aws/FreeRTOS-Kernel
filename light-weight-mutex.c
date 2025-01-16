@@ -32,7 +32,7 @@
         {
             if( pxMutex->lock_count == 0U )
             {
-                //Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask );
+                /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask ); */
                 pxMutex->owner = ( uintptr_t ) currentTask;
                 pxMutex->lock_count = 1;
                 xReturn = pdTRUE;
@@ -40,7 +40,7 @@
                 goto exit;
             }
 
-            //if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask )
+            /*if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask ) */
             if( pxMutex->owner == ( uintptr_t ) currentTask )
             {
                 pxMutex->lock_count++;
@@ -74,32 +74,32 @@ exit:
         /* Check the pxMutex pointer is not NULL and the mutex has already been taken earlier. */
         BaseType_t xReturn = pdTRUE;
 
-        configASSERT( ( pxMutex != NULL ) || ( pxMutex->lock_count != 0U ) ) ;
+        configASSERT( ( pxMutex != NULL ) || ( pxMutex->lock_count != 0U ) );
 
-            //if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) xTaskGetCurrentTaskHandle() )
-            if( pxMutex->owner != ( uintptr_t ) xTaskGetCurrentTaskHandle() )
+        /*if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) xTaskGetCurrentTaskHandle() ) */
+        if( pxMutex->owner != ( uintptr_t ) xTaskGetCurrentTaskHandle() )
+        {
+            xReturn = pdFALSE;
+        }
+        else
+        {
+            taskENTER_CRITICAL();
             {
-                xReturn = pdFALSE;
-            }
-            else
-            {
-                taskENTER_CRITICAL();
+                pxMutex->lock_count--;
+
+                if( pxMutex->lock_count == 0U )
                 {
-                    pxMutex->lock_count--;
+                    /* Update the current owner of the mutex to 0. */
 
-                    if( pxMutex->lock_count == 0U )
-                    {
-                        /* Update the current owner of the mutex to 0. */
-
-                        //Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) 0U );
-                        pxMutex->owner = ( uintptr_t ) 0U;
-                        xReturn = pdTRUE;
-                        /* Get the new owner, if any. */
-                        prvAssignLWMutexOwner( pxMutex );
-                    }
+                    /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) 0U ); */
+                    pxMutex->owner = ( uintptr_t ) 0U;
+                    xReturn = pdTRUE;
+                    /* Get the new owner, if any. */
+                    prvAssignLWMutexOwner( pxMutex );
                 }
-                taskEXIT_CRITICAL();
             }
+            taskEXIT_CRITICAL();
+        }
 
         return xReturn;
     }

@@ -5418,14 +5418,11 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
 
         if( listLIST_IS_EMPTY( &( pxMutex->xTasksWaitingForMutex ) ) == pdFALSE )
         {
-            taskENTER_CRITICAL();
-            {
-                pxUnblockedTCB = listGET_OWNER_OF_HEAD_ENTRY( &( pxMutex->xTasksWaitingForMutex ) );
-                newOwner = ( TaskHandle_t ) pxUnblockedTCB;
-                Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) newOwner );
-                pxMutex->lock_count = 1;
-            }
-            taskEXIT_CRITICAL();
+            pxUnblockedTCB = listGET_OWNER_OF_HEAD_ENTRY( &( pxMutex->xTasksWaitingForMutex ) );
+            newOwner = ( TaskHandle_t ) pxUnblockedTCB;
+            /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) newOwner ); */
+            pxMutex->owner = ( uintptr_t ) newOwner;
+            pxMutex->lock_count = 1;
 
             if( xTaskRemoveFromEventList( &( pxMutex->xTasksWaitingForMutex ) ) != pdFALSE )
             {
