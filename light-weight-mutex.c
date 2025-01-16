@@ -26,7 +26,7 @@
         TickType_t startTime = xTaskGetTickCount();
 
         /* Check the pxMutex pointer is not NULL. */
-        configASSERT( pxMutex || ( xTicksToWait == 0U ) );
+        configASSERT( ( pxMutex != NULL ) || ( xTicksToWait != 0U ) );
 
         for( ; ; )
         {
@@ -76,7 +76,7 @@ exit:
         /* Check the pxMutex pointer is not NULL and the mutex has already been taken earlier. */
         BaseType_t xReturn = pdFALSE;
 
-        configASSERT( pxMutex );
+        configASSERT( pxMutex != NULL );
 
         taskENTER_CRITICAL();
         {
