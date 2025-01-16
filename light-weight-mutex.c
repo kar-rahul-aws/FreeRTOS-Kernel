@@ -30,14 +30,13 @@
 
         for( ; ; )
         {
-            taskENTER_CRITICAL();
-            {
+
                 if( pxMutex->lock_count == 0U )
                 {
                     Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask );
                     pxMutex->lock_count = 1;
                     xReturn = pdTRUE;
-                    taskEXIT_CRITICAL();
+
                     goto exit;
                 }
 
@@ -45,7 +44,7 @@
                 {
                     pxMutex->lock_count++;
                     xReturn = pdTRUE;
-                    taskEXIT_CRITICAL();
+
                     goto exit;
                 }
 
@@ -54,14 +53,14 @@
                     if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
                     {
                         xReturn = pdFALSE;
-                        taskEXIT_CRITICAL();
+
                         goto exit;
                     }
                 }
 
                 vTaskPlaceOnEventList( &( pxMutex->xTasksWaitingForMutex ), xTicksToWait );
-            }
-            taskEXIT_CRITICAL();
+
+
             taskYIELD();
         }
 
@@ -78,11 +77,10 @@ exit:
 
         configASSERT( pxMutex != NULL );
 
-        taskENTER_CRITICAL();
         {
             if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) xTaskGetCurrentTaskHandle() )
             {
-                taskEXIT_CRITICAL();
+
                 xReturn =  pdFALSE;
             }
             else
@@ -99,7 +97,7 @@ exit:
                 }
             }
         }
-        taskEXIT_CRITICAL();
+
 
         return pdTRUE;
     }
