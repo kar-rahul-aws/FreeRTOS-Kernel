@@ -11,7 +11,7 @@
 
     void lightMutexInit( LightWeightMutex_t * pxMutex )
     {
-        Atomic_Store_u32( &pxMutex->owner, 0 );
+        pxMutex->owner = 0;
         pxMutex->lock_count = 0;
         vListInitialise( &( pxMutex->xTasksWaitingForMutex ) );
     }
@@ -28,40 +28,44 @@
         /* Check the pxMutex pointer is not NULL. */
         configASSERT( ( pxMutex != NULL ) || ( xTicksToWait != 0U ) );
 
-        taskENTER_CRITICAL();
+        for( ; ; )
         {
-            if( pxMutex->lock_count == 0U )
+            taskENTER_CRITICAL();
             {
-                /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask ); */
-                pxMutex->owner = ( uintptr_t ) currentTask;
-                pxMutex->lock_count = 1;
-                xReturn = pdTRUE;
-                taskEXIT_CRITICAL();
-                goto exit;
-            }
-
-            /*if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask ) */
-            if( pxMutex->owner == ( uintptr_t ) currentTask )
-            {
-                pxMutex->lock_count++;
-                xReturn = pdTRUE;
-                taskEXIT_CRITICAL();
-                goto exit;
-            }
-
-            if( xTicksToWait != portMAX_DELAY )
-            {
-                if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
+                if( pxMutex->lock_count == 0U )
                 {
-                    xReturn = pdFALSE;
+                    /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask ); */
+                    pxMutex->owner = ( uintptr_t ) currentTask;
+                    pxMutex->lock_count = 1;
+                    xReturn = pdTRUE;
                     taskEXIT_CRITICAL();
                     goto exit;
                 }
-            }
 
-            vTaskPlaceOnEventList( &( pxMutex->xTasksWaitingForMutex ), xTicksToWait );
+                /*if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask ) */
+                if( pxMutex->owner == ( uintptr_t ) currentTask )
+                {
+                    pxMutex->lock_count++;
+                    xReturn = pdTRUE;
+                    taskEXIT_CRITICAL();
+                    goto exit;
+                }
+
+                if( xTicksToWait != portMAX_DELAY )
+                {
+                    if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
+                    {
+                        xReturn = pdFALSE;
+                        taskEXIT_CRITICAL();
+                        goto exit;
+                    }
+                }
+
+                vTaskPlaceOnEventList( &( pxMutex->xTasksWaitingForMutex ), xTicksToWait );
+                taskYIELD();
+            }
+            taskEXIT_CRITICAL();
         }
-        taskEXIT_CRITICAL();
 
 exit:
         return xReturn;
