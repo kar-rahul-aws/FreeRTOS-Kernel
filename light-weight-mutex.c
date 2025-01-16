@@ -47,14 +47,6 @@
         {
             taskENTER_CRITICAL();
             {
-                if( ( pxMutex->lock_count == 0U ) && ( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, 0 ) ) )
-                {
-                    pxMutex->lock_count = 1;
-                    xReturn = pdTRUE;
-                    taskEXIT_CRITICAL();
-                    goto exit;
-                }
-
                 if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask )
                 {
                     pxMutex->lock_count++;
@@ -62,8 +54,14 @@
                     taskEXIT_CRITICAL();
                     goto exit;
                 }
-
-                if( xTicksToWait != portMAX_DELAY )
+                else if( ( pxMutex->lock_count == 0U ) && ( Atomic_CompareAndSwap_u32( &pxMutex->owner, ( uintptr_t ) currentTask, 0 ) ) )
+                {
+                    pxMutex->lock_count = 1;
+                    xReturn = pdTRUE;
+                    taskEXIT_CRITICAL();
+                    goto exit;
+                }
+                else if( xTicksToWait != portMAX_DELAY )
                 {
                     if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
                     {
