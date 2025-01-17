@@ -10,11 +10,11 @@
  * configUSE_LW_MUTEXES is set to 1 in FreeRTOSConfig.h. */
 #if ( configUSE_LW_MUTEXES == 1 )
 
-    void lightMutexInit( LightWeightMutex_t * pxMutex )
+    void lightMutexInit( LightWeightMutex_t * pxMutex, UBaseType_t uxCeilingPriority )
     {
         pxMutex->owner = 0U;
         pxMutex->lock_count = 0U;
-        pxMutex->uxCeilingPriority = configLW_MUTEX_CEIL_PRIORITY;
+        pxMutex->uxCeilingPriority = uxCeilingPriority;
         vListInitialise( &( pxMutex->xTasksWaitingForMutex ) );
         vListInitialiseItem( &( pxMutex->xMutexHolderListItem ) );
         listSET_LIST_ITEM_OWNER( &( pxMutex->xMutexHolderListItem ), pxMutex );

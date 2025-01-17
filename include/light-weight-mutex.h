@@ -48,7 +48,7 @@ typedef struct xLW_MUTEX
     List_t xTasksWaitingForMutex;    /*< List of tasks that are blocked waiting to take the mutex.  Stored in priority order. */
 } LightWeightMutex_t;
 
-void lightMutexInit( LightWeightMutex_t * xMutex );
+void lightMutexInit( LightWeightMutex_t * pxMutex, UBaseType_t uxCeilingPriority );
 void vRemoveMutexItemFromList( void * pvMutexHandle );
 BaseType_t lightMutexTake( LightWeightMutex_t * xMutex,
                            TickType_t xTicksToWait );
