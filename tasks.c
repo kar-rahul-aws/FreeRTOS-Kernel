@@ -936,6 +936,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
     vListInitialiseItem( &( pxNewTCB->xStateListItem ) );
     vListInitialiseItem( &( pxNewTCB->xEventListItem ) );
+    vListInitialise( &( pxNewTCB->xMutexesCurrentlyHeld ) );
 
     /* Set the pxNewTCB as a link back from the ListItem_t.  This is so we can get
      * back to  the containing TCB from a generic item in a list. */
