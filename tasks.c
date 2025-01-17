@@ -5659,20 +5659,8 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
 
     void prvAssignLWMutexOwner( LightWeightMutex_t * const pxMutex )
     {
-        TCB_t * pxUnblockedTCB = NULL;
-        TaskHandle_t newOwner = NULL;
-
         if( listLIST_IS_EMPTY( &( pxMutex->xTasksWaitingForMutex ) ) == pdFALSE )
         {
-            pxUnblockedTCB = listGET_OWNER_OF_HEAD_ENTRY( &( pxMutex->xTasksWaitingForMutex ) );
-            newOwner = ( TaskHandle_t ) pxUnblockedTCB;
-            /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) newOwner ); */
-            pxMutex->owner = ( uintptr_t ) newOwner;
-            pxMutex->lock_count = 1;
-
-            vInsertMutexToHolderList( newOwner, &( pxMutex->xMutexHolderListItem ) );
-            ( void ) xTaskCeilingPriorityInherit( pxMutex->uxCeilingPriority );
-
             if( xTaskRemoveFromEventList( &( pxMutex->xTasksWaitingForMutex ) ) != pdFALSE )
             {
                 taskYIELD_IF_USING_PREEMPTION();
