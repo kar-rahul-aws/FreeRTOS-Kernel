@@ -39,7 +39,7 @@
         TickType_t startTime = xTaskGetTickCount();
 
         /* Check the pxMutex pointer is not NULL. */
-        configASSERT( ( pxMutex != NULL ) || ( xTicksToWait != 0U ) );
+        configASSERT( ( pxMutex != NULL ) && ( xTicksToWait != 0U ) );
 
         for( ; ; )
         {
@@ -50,8 +50,9 @@
                     /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask ); */
                     pxMutex->owner = ( uintptr_t ) currentTask;
                     pxMutex->lock_count = 1;
-                    vInsertMutexToHolderList( currentTask, &( pxMutex->xMutexHolderListItem ) );
-                    xInheritanceOccurred = xTaskCeilingPriorityInherit( pxMutex->uxCeilingPriority );
+
+                    //vInsertMutexToHolderList( currentTask, &( pxMutex->xMutexHolderListItem ) );
+                    //xInheritanceOccurred = xTaskCeilingPriorityInherit( pxMutex->uxCeilingPriority );
                     xReturn = pdTRUE;
                     taskEXIT_CRITICAL();
                     break;
@@ -127,6 +128,7 @@
                     /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) 0U ); */
                     pxMutex->owner = ( uintptr_t ) 0U;
                     /* The mutex is no longer being held. */
+                    /*
                     LightWeightMutex_t * pxNextMutex = pvRemoveMutexToHolderList( ( void * const ) pxMutex );
 
                     if( pxNextMutex != NULL )
@@ -137,6 +139,7 @@
                     {
                         xTaskCeilingPriorityDisInheritToBasePrio();
                     }
+                    */
 
                     xReturn = pdTRUE;
                     /* Get the new owner, if any. */
