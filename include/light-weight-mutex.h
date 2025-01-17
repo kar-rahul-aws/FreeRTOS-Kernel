@@ -53,6 +53,9 @@ void vRemoveMutexItemFromList( void * pvMutexHandle );
 BaseType_t lightMutexTake( LightWeightMutex_t * xMutex,
                            TickType_t xTicksToWait );
 BaseType_t lightMutexGive( LightWeightMutex_t * xMutex );
+BaseType_t lightSemaphoreTake( LightWeightMutex_t * xMutex,
+                           TickType_t xTicksToWait );
+BaseType_t lightSemaphoreGive( LightWeightMutex_t * xMutex );
 
 /* *INDENT-OFF* */
 #if defined( __cplusplus )

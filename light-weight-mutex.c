@@ -35,6 +35,7 @@
     {
         TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
         BaseType_t xReturn = pdFALSE;
+        BaseType_t xInheritanceOccurred = pdFALSE;
         TickType_t startTime = xTaskGetTickCount();
 
         /* Check the pxMutex pointer is not NULL. */
@@ -51,7 +52,6 @@
                     pxMutex->lock_count = 1;
                     if( uxTaskPriorityGet( currentTask ) < pxMutex->uxCeilingPriority )
                     {
-                        BaseType_t xInheritanceOccurred = pdFALSE;
                         vInsertMutexToHolderList( currentTask, &( pxMutex->xMutexHolderListItem ) );
                         xInheritanceOccurred = xTaskCeilingPriorityInherit( pxMutex->uxCeilingPriority );
                     }
@@ -77,16 +77,16 @@
                         /* Get the ceiling priority of next mutex held.
                          * If it not there set to base priority.
                          */
-                        // LightWeightMutex_t * pxNextMutex = pvRemoveMutexToHolderList( ( void * const ) pxMutex );
+                        LightWeightMutex_t * pxNextMutex = pvRemoveMutexToHolderList( ( void * const ) pxMutex );
 
-                        // if( pxNextMutex != NULL )
-                        // {
-                        //     xTaskCeilingPriorityDisInherit( pxNextMutex->uxCeilingPriority );
-                        // }
-                        // else
-                        // {
-                        //     xTaskCeilingPriorityDisInheritToBasePrio();
-                        // }
+                        if( pxNextMutex != NULL )
+                        {
+                            xTaskCeilingPriorityDisInherit( pxNextMutex->uxCeilingPriority );
+                        }
+                        else
+                        {
+                            xTaskCeilingPriorityDisInheritToBasePrio();
+                        }
 
                         xReturn = pdFALSE;
                         taskEXIT_CRITICAL();
@@ -143,6 +143,98 @@
                             xTaskCeilingPriorityDisInheritToBasePrio();
                         }
                     }
+                    xReturn = pdTRUE;
+                    /* Get the new owner, if any. */
+                    prvAssignLWMutexOwner( pxMutex );
+                }
+            }
+            taskEXIT_CRITICAL();
+        }
+
+        return xReturn;
+    }
+
+/*-----------------------------------------------------------*/
+
+    BaseType_t lightSemaphoreTake( LightWeightMutex_t * pxMutex, TickType_t xTicksToWait )
+    {
+        TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
+        BaseType_t xReturn = pdFALSE;
+        TickType_t startTime = xTaskGetTickCount();
+
+        /* Check the pxMutex pointer is not NULL. */
+        configASSERT( ( pxMutex != NULL ) && ( xTicksToWait != 0U ) );
+
+        for( ; ; )
+        {
+            taskENTER_CRITICAL();
+            {
+                if( pxMutex->lock_count == 0U )
+                {
+                    /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) currentTask ); */
+                    pxMutex->owner = ( uintptr_t ) currentTask;
+                    pxMutex->lock_count = 1;
+                    xReturn = pdTRUE;
+                    taskEXIT_CRITICAL();
+                    break;
+                }
+
+                /*if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) == ( uintptr_t ) currentTask ) */
+                if( pxMutex->owner == ( uintptr_t ) currentTask )
+                {
+                    pxMutex->lock_count++;
+                    xReturn = pdTRUE;
+                    taskEXIT_CRITICAL();
+                    break;
+                }
+
+                if( xTicksToWait != portMAX_DELAY )
+                {
+                    /* Timed out */
+                    if( ( xTaskGetTickCount() - startTime ) >= xTicksToWait )
+                    {
+                        xReturn = pdFALSE;
+                        taskEXIT_CRITICAL();
+                        break;
+                    }
+                }
+
+                vTaskPlaceOnEventList( &( pxMutex->xTasksWaitingForMutex ), xTicksToWait );
+                taskYIELD();
+            }
+            taskEXIT_CRITICAL();
+        }
+
+        return xReturn;
+    }
+
+/*-----------------------------------------------------------*/
+
+    BaseType_t lightSemaphoreGive( LightWeightMutex_t * pxMutex )
+    {
+        /* Check the pxMutex pointer is not NULL and the mutex has already been taken earlier. */
+        BaseType_t xReturn = pdTRUE;
+
+        configASSERT( ( pxMutex != NULL ) || ( pxMutex->lock_count != 0U ) );
+
+        /*if( ( uintptr_t ) Atomic_Load_u32( &pxMutex->owner ) != ( uintptr_t ) xTaskGetCurrentTaskHandle() ) */
+        if( pxMutex->owner != ( uintptr_t ) xTaskGetCurrentTaskHandle() )
+        {
+            xReturn = pdFALSE;
+        }
+        else
+        {
+            taskENTER_CRITICAL();
+            {
+                pxMutex->lock_count--;
+
+                if( pxMutex->lock_count == 0U )
+                {
+                    /* Update the current owner of the mutex to 0. */
+
+                    /*Atomic_Store_u32( &pxMutex->owner, ( uintptr_t ) 0U ); */
+                    pxMutex->owner = ( uintptr_t ) 0U;
+                    /* The mutex is no longer being held. */
                     xReturn = pdTRUE;
                     /* Get the new owner, if any. */
                     prvAssignLWMutexOwner( pxMutex );
