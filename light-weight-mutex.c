@@ -35,7 +35,6 @@
     {
         TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
         BaseType_t xReturn = pdFALSE;
-        BaseType_t xInheritanceOccurred = pdFALSE;
         TickType_t startTime = xTaskGetTickCount();
 
         /* Check the pxMutex pointer is not NULL. */
@@ -52,6 +51,7 @@
                     pxMutex->lock_count = 1;
                     if( uxTaskPriorityGet( currentTask ) < pxMutex->uxCeilingPriority )
                     {
+                        BaseType_t xInheritanceOccurred = pdFALSE;
                         vInsertMutexToHolderList( currentTask, &( pxMutex->xMutexHolderListItem ) );
                         xInheritanceOccurred = xTaskCeilingPriorityInherit( pxMutex->uxCeilingPriority );
                     }
@@ -77,16 +77,16 @@
                         /* Get the ceiling priority of next mutex held.
                          * If it not there set to base priority.
                          */
-                        LightWeightMutex_t * pxNextMutex = pvRemoveMutexToHolderList( ( void * const ) pxMutex );
+                        // LightWeightMutex_t * pxNextMutex = pvRemoveMutexToHolderList( ( void * const ) pxMutex );
 
-                        if( pxNextMutex != NULL )
-                        {
-                            xTaskCeilingPriorityDisInherit( pxNextMutex->uxCeilingPriority );
-                        }
-                        else
-                        {
-                            xTaskCeilingPriorityDisInheritToBasePrio();
-                        }
+                        // if( pxNextMutex != NULL )
+                        // {
+                        //     xTaskCeilingPriorityDisInherit( pxNextMutex->uxCeilingPriority );
+                        // }
+                        // else
+                        // {
+                        //     xTaskCeilingPriorityDisInheritToBasePrio();
+                        // }
 
                         xReturn = pdFALSE;
                         taskEXIT_CRITICAL();
