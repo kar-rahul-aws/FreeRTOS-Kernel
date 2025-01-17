@@ -2,8 +2,6 @@
 #include "task.h"
 #include "light-weight-mutex.h"
 
-#define configLW_MUTEX_CEIL_PRIORITY    5U
-
 /* This entire source file will be skipped if the application is not configured
  * to include light weight mutex functionality. This #if is closed at the very
  * bottom of this file. If you want to include light weight mutexes then ensure
