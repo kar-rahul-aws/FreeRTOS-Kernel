@@ -1274,6 +1274,9 @@ typedef struct xSTATIC_TCB
     #endif
     #if ( configUSE_MUTEXES == 1 )
         UBaseType_t uxDummy12[ 2 ];
+        #if ( configUSE_LW_MUTEXES == 1 )
+            StaticList_t xDummy20;
+        #endif
     #endif
     #if ( configUSE_APPLICATION_TASK_TAG == 1 )
         void * pxDummy14;
